@@ -1,4 +1,4 @@
-import Algorithm
+import algorithm
 import constraints
 from constraints import Constraint, PurchaseType
 import math
@@ -39,7 +39,7 @@ class UTAlgorithm:
         connection.close()
 
         self.constraints = constraints.UserPreferences()
-        self.algorithm = Algorithm.HousingRecommender([parameter for parameter in self.constraints.get_constraints().values()])
+        self.algorithm = algorithm.HousingRecommender(self.constraints.get_constraints())
 
         self.feed = [] #[current, next, n2, n3, ..., n6]
                     #feed += algorithm.feedback + algorithm.recommend, pop from front
@@ -48,8 +48,8 @@ class UTAlgorithm:
     def build_listings_from_db(self):
         self.listings = []
         for row in self.database:
-            house = Algorithm.Listing(
-                id=row[0],
+            house = algorithm.Listing(
+                id=str(row[0]),
                 price=row[4],
                 sqft=row[8],
                 beds=row[6],
@@ -73,11 +73,11 @@ class UTAlgorithm:
     #===SETTERS===#
     def update_rigidity(self, constraint, value):
         self.constraints.update_constraint_rigidity(constraint, value)
-        self.algorithm.constraints = self.constraints
+        self.algorithm.constraints = self.constraints.get_constraints()
 
     def update_constraint(self, constraint, value):
         self.constraints.update_constraint_value(constraint, value)
-        self.algorithm.constraints = self.constraints
+        self.algorithm.constraints = self.constraints.get_constraints()
 
     #===PRINTS===#
     def print_constraints(self):
@@ -136,8 +136,6 @@ if __name__ == "__main__":
     ut_algorithm.update_constraint(Constraint.LOCATION, "Los Angeles")
     ut_algorithm.update_constraint(Constraint.SQUARE_FEET, 1000)
     ut_algorithm.update_constraint(Constraint.BUDGET, 500000)
-
-    print(ut_algorithm.algorithm.constraints)
 
     ut_algorithm.run()
 
