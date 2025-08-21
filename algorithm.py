@@ -11,9 +11,9 @@ class Listing:
     beds: int
     baths: float
     city: str
+    style: str | set[str]
     listing_type: str        # "single", "family", "condo", etc.
-    tenure: str              # "buy" or "rent"
-    is_sold: bool = False
+    tenure: str             # "buy" or "rent"
 
 # ---------- Recommender ----------
 class HousingRecommender:
@@ -21,7 +21,7 @@ class HousingRecommender:
         """
         constraints keys (all optional):
             city (set[str] or str), max_price (int), min_sqft (int),
-            listing_type (set[str] or str), tenure (str), include_sold (bool)
+            listing_type (set[str] or str), tenure (str)
         """
         self.constraints = constraints
         # User preference vector (higher = better). Start neutral.
@@ -32,6 +32,7 @@ class HousingRecommender:
             "beds": 0.3,
             "baths": 0.3,
             "city": 0.4,       # categorical match bonus
+            "style": 0.2,
             "listing_type": 0.2,
             "tenure": 0.6
         }
@@ -40,25 +41,32 @@ class HousingRecommender:
     # ---- Filtering by hard constraints ----
     def _passes_constraints(self, h: Listing) -> bool:
         c = self.constraints
-        if not c.get("include_sold", False) and h.is_sold:
+        if "tenure" in c and c["tenure"]["value"] and h.tenure != c["tenure"]["value"]:
+            #print("Tenure mismatch:", h.tenure, "!=", c["tenure"]["value"])
             return False
-        if "tenure" in c and c["tenure"] and h.tenure != c["tenure"]:
+        if "max_price" in c and c["max_price"]["value"] and h.price > c["max_price"]["value"]:
+            #print("Max price exceeded:", h.price, ">", c["max_price"]["value"])
             return False
-        if "max_price" in c and c["max_price"] and h.price > c["max_price"]:
-            return False
-        if "min_sqft" in c and c["min_sqft"] and h.sqft < c["min_sqft"]:
+        if "min_sqft" in c and c["min_sqft"]["value"] and h.sqft < c["min_sqft"]["value"]:
+            #print("Min sqft not met:", h.sqft, "<", c["min_sqft"]["value"])
             return False
         if "listing_type" in c and c["listing_type"]:
-            allowed = c["listing_type"]
+            allowed = c["listing_type"]["value"]
             if isinstance(allowed, str):
                 allowed = {allowed}
             if h.listing_type not in allowed:
                 return False
-        if "city" in c and c["city"]:
-            allowed = c["city"]
+        if "city" in c and c["city"]["value"]:
+            allowed = c["city"]["value"]
             if isinstance(allowed, str):
                 allowed = {allowed}
             if h.city not in allowed:
+                return False
+        if "style" in c and c["style"]["value"]:
+            allowed = c["style"]["value"]
+            if isinstance(allowed, str):
+                allowed = {allowed}
+            if h.style not in allowed:
                 return False
         return True
 
@@ -102,6 +110,7 @@ class HousingRecommender:
         s += self.weights["city"]         * match(h.city, self.constraints.get("city"))
         s += self.weights["listing_type"] * match(h.listing_type, self.constraints.get("listing_type"))
         s += self.weights["tenure"]       * match(h.tenure, self.constraints.get("tenure"))
+        s += self.weights["style"]        * match(h.style, self.constraints.get("style"))
         return s
 
     # ---- Public API ----
@@ -132,6 +141,7 @@ class HousingRecommender:
             "beds":  beds_n,
             "baths": baths_n,
             "city":  1.0,
+            "style": 1.0,
             "listing_type": 1.0,
             "tenure": 1.0
         }
@@ -144,10 +154,10 @@ class HousingRecommender:
 # ---------- Example usage ----------
 if __name__ == "__main__":
     listings = [
-        Listing("A", price=750000, sqft=1200, beds=3, baths=2, city="Seattle", listing_type="single", tenure="buy"),
-        Listing("B", price=2600,    sqft=900,  beds=2, baths=1, city="Seattle", listing_type="condo",  tenure="rent"),
-        Listing("C", price=540000, sqft=1500, beds=4, baths=2, city="Redmond", listing_type="family", tenure="buy"),
-        Listing("D", price=480000, sqft=1000, beds=2, baths=1, city="Bellevue", listing_type="condo",  tenure="buy", is_sold=True),
+        Listing("A", price=750000, sqft=1200, beds=3, baths=2, city="Seattle", listing_type="single", tenure="buy", style={"spanish"}),
+        Listing("B", price=2600,    sqft=900,  beds=2, baths=1, city="Seattle", listing_type="condo",  tenure="rent", style={"modern"}),
+        Listing("C", price=540000, sqft=1500, beds=4, baths=2, city="Redmond", listing_type="family", tenure="buy", style={"traditional"}),
+        Listing("D", price=480000, sqft=1000, beds=2, baths=1, city="Bellevue", listing_type="condo",  tenure="buy", style={"modern"}),
     ]
 
     constraints = {
@@ -156,7 +166,7 @@ if __name__ == "__main__":
         "min_sqft": 900,
         "listing_type": {"single", "condo", "family"},
         "tenure": "buy",
-        "include_sold": False
+        "style": {"spanish", "modern", "traditional"},
     }
 
     rec = HousingRecommender(constraints)

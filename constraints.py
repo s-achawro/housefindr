@@ -8,16 +8,16 @@ from enum import Enum
 from unittest import case
 
 class PurchaseType(Enum):
-    BUY = "buying"
-    RENT = "renting"
+    BUY = "buy"
+    RENT = "rent"
 
 class Constraint(Enum):
     LOCATION = "city"
     HOME_TYPE = "listing_type"
     SQUARE_FEET = "min_sqft"
     BUDGET = "max_price"
+    STYLE = "style"
     BUY_OR_RENT = "tenure"
-    INCLUDE_NOT_FOR_SALE = "include_sold"
 
 class UserPreferences:
     """
@@ -30,8 +30,8 @@ class UserPreferences:
             Constraint.HOME_TYPE: Preference("", 0.2), #ex, "apartment", "house", "condo", etc
             Constraint.SQUARE_FEET: Preference(0.0, 0.01),
             Constraint.BUDGET: Preference(0, 0),
-            Constraint.BUY_OR_RENT: Preference(PurchaseType.BUY, 0), #rigidity always 0, cant be removed
-            Constraint.INCLUDE_NOT_FOR_SALE: Preference(False, 0) #rigidity always 0, cant be removed
+            Constraint.STYLE: Preference(False, 0),
+            Constraint.BUY_OR_RENT: Preference(PurchaseType.BUY, 0) #rigidity always 0, cant be removed
         }
 
 
@@ -58,12 +58,12 @@ class UserPreferences:
             case Constraint.BUDGET:
                 if not isinstance(value, (int, float)) or value < 0:
                     raise ValueError("Budget must be a positive number.")
+            case Constraint.STYLE:
+                if not (not isinstance(value, str)) and (not isinstance(value, set)):
+                    raise ValueError("Style must be a string or set of strings.")
             case Constraint.BUY_OR_RENT:
                 if not isinstance(value, PurchaseType):
                     raise ValueError("Buy or rent must be a PurchaseType enum.")
-            case Constraint.INCLUDE_NOT_FOR_SALE:
-                if not isinstance(value, bool):
-                    raise ValueError("'Include not for sale' must be a boolean.")
 
         self.constraints[constraint].update_user_preference(value)
 
@@ -80,8 +80,8 @@ class UserPreferences:
         if constraint not in self.constraints:
             raise ValueError(f"Constraint '{constraint.value}' does not exist.")
         
-        if constraint == Constraint.BUY_OR_RENT or constraint == Constraint.INCLUDE_NOT_FOR_SALE:
-                raise ValueError("Rigidity for 'buy_or_rent' and 'include_not_for_sale' must always be 0.")
+        if constraint == Constraint.BUY_OR_RENT:
+            raise ValueError("Rigidity for 'buy_or_rent' must always be 0.")
 
         if rigidity < 0 or rigidity > 1:
             raise ValueError("Rigidity must be between 0 and 1.")
@@ -171,6 +171,12 @@ class Preference:
             'value': retValue,
             'rigidity': self.rigidity
         }
+    
+    def get_preference_value(self):
+        retValue = self.value
+        if isinstance(retValue, PurchaseType):
+            retValue = retValue.value
+        return retValue
 
     def update_user_preference(self, value):
         self.value = value
