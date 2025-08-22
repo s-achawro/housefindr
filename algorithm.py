@@ -1,170 +1,93 @@
+# Import necessary modules from constraints.py
+from constraints import UserPreferences, Constraint, Preference
 from dataclasses import dataclass
-from typing import List, Optional, Dict, Any
-import math
 
-# ---------- Data model ----------
 @dataclass
 class Listing:
     id: str
     price: int
     sqft: int
     beds: int
-    baths: float
+    baths: float #should only be wholes or halves (ex, 2, 2.5, 1, 1.5 baths)
     city: str
-    listing_type: str        # "single", "family", "condo", etc.
-    tenure: str              # "buy" or "rent"
-    is_sold: bool = False
+    style: str | set[str] #"spanish", OR, {"modern", "traditional", ..., etc}, 
+    listing_type: str        #"single", "family", "condo", etc.
+    tenure: str             #"buy" or "rent"
 
-# ---------- Recommender ----------
-class HousingRecommender:
-    def __init__(self, constraints: Dict[str, Any]):
-        """
-        constraints keys (all optional):
-            city (set[str] or str), max_price (int), min_sqft (int),
-            listing_type (set[str] or str), tenure (str), include_sold (bool)
-        """
-        self.constraints = constraints
-        # User preference vector (higher = better). Start neutral.
-        # Normalize features internally when scoring.
-        self.weights = {
-            "price": -0.6,     # cheaper better (negative weight)
-            "sqft": 0.6,
-            "beds": 0.3,
-            "baths": 0.3,
-            "city": 0.4,       # categorical match bonus
-            "listing_type": 0.2,
-            "tenure": 0.6
-        }
-        self.lr = 0.1  # learning rate for feedback updates
+def filter_listings(listings, user_preferences):
+    filtered_listings = []
+    for listing in listings:
 
-    # ---- Filtering by hard constraints ----
-    def _passes_constraints(self, h: Listing) -> bool:
-        c = self.constraints
-        if not c.get("include_sold", False) and h.is_sold:
-            return False
-        if "tenure" in c and c["tenure"] and h.tenure != c["tenure"]:
-            return False
-        if "max_price" in c and c["max_price"] and h.price > c["max_price"]:
-            return False
-        if "min_sqft" in c and c["min_sqft"] and h.sqft < c["min_sqft"]:
-            return False
-        if "listing_type" in c and c["listing_type"]:
-            allowed = c["listing_type"]
-            if isinstance(allowed, str):
-                allowed = {allowed}
-            if h.listing_type not in allowed:
-                return False
-        if "city" in c and c["city"]:
-            allowed = c["city"]
-            if isinstance(allowed, str):
-                allowed = {allowed}
-            if h.city not in allowed:
-                return False
-        return True
+        if not (listing.city == user_preferences.constraints[Constraint.LOCATION].value or
+            user_preferences.constraints[Constraint.LOCATION].rigidity <= 0):
+           continue
+        if not (listing.listing_type == user_preferences.constraints[Constraint.HOME_TYPE].value or
+            user_preferences.constraints[Constraint.HOME_TYPE].rigidity <= 0):
+           continue
 
-    # ---- Normalizers (min-max on-the-fly from candidate pool) ----
-    def _build_norms(self, listings: List[Listing]):
-        vals = lambda key: [getattr(x, key) for x in listings] or [0]
-        def mm(v):
-            lo, hi = min(v), max(v)
-            return (lo, hi if hi != lo else lo + 1)
-        self._norm = {
-            "price": mm(vals("price")),
-            "sqft":  mm(vals("sqft")),
-            "beds":  mm(vals("beds")),
-            "baths": mm(vals("baths")),
-        }
+        differenceInFeet = abs(listing.sqft - user_preferences.constraints[Constraint.SQUARE_FEET].value)
+        roomForError = 0
+        if user_preferences.constraints[Constraint.SQUARE_FEET].rigidity > 0:
+            roomForError = differenceInFeet - (user_preferences.constraints[Constraint.SQUARE_FEET].value * user_preferences.constraints[Constraint.SQUARE_FEET].rigidity)
+        if not (listing.sqft >= user_preferences.constraints[Constraint.SQUARE_FEET].value or
+            (user_preferences.constraints[Constraint.SQUARE_FEET].rigidity <= 0 and differenceInFeet <= roomForError)):
+           continue
 
-    def _norm_val(self, key: str, v: float) -> float:
-        lo, hi = self._norm[key]
-        return (v - lo) / (hi - lo)
+        differenceInPrice = abs(listing.price - user_preferences.constraints[Constraint.BUDGET].value)
+        roomForError = 0
+        if user_preferences.constraints[Constraint.BUDGET].rigidity > 0:
+            roomForError = differenceInPrice - (user_preferences.constraints[Constraint.BUDGET].value * user_preferences.constraints[Constraint.BUDGET].rigidity)
+        if not (listing.price <= user_preferences.constraints[Constraint.BUDGET].value or
+            (user_preferences.constraints[Constraint.BUDGET].rigidity <= 0 and differenceInPrice <= roomForError)):
+           continue
 
-    # ---- Scoring ----
-    def _score(self, h: Listing) -> float:
-        # numeric components
-        price_n = self._norm_val("price", h.price)      # higher = more expensive
-        sqft_n  = self._norm_val("sqft",  h.sqft)
-        beds_n  = self._norm_val("beds",  h.beds)
-        baths_n = self._norm_val("baths", h.baths)
+        filtered_listings.append(listing)
+    return filtered_listings
 
-        s = 0.0
-        s += self.weights["price"] * price_n
-        s += self.weights["sqft"]  * sqft_n
-        s += self.weights["beds"]  * beds_n
-        s += self.weights["baths"] * baths_n
+def recommend_listing(user_preferences, listings):
+    filtered_listings = filter_listings(listings, user_preferences)
+    if not filtered_listings:
+        drop_most_rigid_constraint(user_preferences)
+        return recommend_listing(user_preferences, listings)  #recursive call
+    return filtered_listings[0]
 
-        # categorical matches vs constraints (1 if matches preferred set, else 0)
-        def match(val, pref):
-            if not pref: return 0.0
-            if isinstance(pref, str): pref = {pref}
-            return 1.0 if val in pref else 0.0
+def drop_most_rigid_constraint(user_preferences):
+    most_rigid_constraint = None
+    max_rigidity = -1
+    for constraint in user_preferences.constraints:
+        if constraint != Constraint.BUY_OR_RENT and user_preferences.constraints[constraint].rigidity > max_rigidity:
+            most_rigid_constraint = constraint
+            max_rigidity = user_preferences.constraints[constraint].rigidity
+    if most_rigid_constraint is not None:
+        user_preferences.update_constraint_value(most_rigid_constraint, "")
+        user_preferences.update_constraint_rigidity(most_rigid_constraint, 0)
 
-        s += self.weights["city"]         * match(h.city, self.constraints.get("city"))
-        s += self.weights["listing_type"] * match(h.listing_type, self.constraints.get("listing_type"))
-        s += self.weights["tenure"]       * match(h.tenure, self.constraints.get("tenure"))
-        return s
+def update_user_feedback(user_preferences, listing: Listing, liked: bool):
+    if liked:
+        pass
+    else:
+        user_preferences.update_constraint_rigidity(Constraint.LOCATION, max(user_preferences.constraints[Constraint.LOCATION].rigidity, 0.1))
 
-    # ---- Public API ----
-    def recommend(self, listings: List[Listing], top_k: Optional[int] = None) -> List[Listing]:
-        pool = [h for h in listings if self._passes_constraints(h)]
-        if not pool:
-            return []
-        self._build_norms(pool)
-        scored = [(self._score(h), h) for h in pool]
-        scored.sort(reverse=True, key=lambda x: x[0])
-        ranked = [h for _, h in scored]
-        return ranked[:top_k] if top_k else ranked
-
-    def feedback(self, listing: Listing, liked: bool):
-        """
-        Simple online update: move weights toward features of liked homes,
-        away from features of disliked homes.
-        """
-        # Build a pseudo-feature vector (normalized numeric + categorical matches)
-        price_n = self._norm_val("price", listing.price)
-        sqft_n  = self._norm_val("sqft",  listing.sqft)
-        beds_n  = self._norm_val("beds",  listing.beds)
-        baths_n = self._norm_val("baths", listing.baths)
-
-        feats = {
-            "price": price_n,
-            "sqft":  sqft_n,
-            "beds":  beds_n,
-            "baths": baths_n,
-            "city":  1.0,
-            "listing_type": 1.0,
-            "tenure": 1.0
-        }
-        direction = 1.0 if liked else -1.0
-        for k in self.weights:
-            # gradient-ascent style bump; clamp to reasonable range
-            self.weights[k] += self.lr * direction * feats[k]
-            self.weights[k] = max(-1.5, min(1.5, self.weights[k]))
-
-# ---------- Example usage ----------
-if __name__ == "__main__":
+# Example usage
+if __name__ == '__main__':
     listings = [
-        Listing("A", price=750000, sqft=1200, beds=3, baths=2, city="Seattle", listing_type="single", tenure="buy"),
-        Listing("B", price=2600,    sqft=900,  beds=2, baths=1, city="Seattle", listing_type="condo",  tenure="rent"),
-        Listing("C", price=540000, sqft=1500, beds=4, baths=2, city="Redmond", listing_type="family", tenure="buy"),
-        Listing("D", price=480000, sqft=1000, beds=2, baths=1, city="Bellevue", listing_type="condo",  tenure="buy", is_sold=True),
+        Listing(id="L001", price=250000, sqft=800, beds=3, baths=2.5, city="Los Angeles", style="Modern", listing_type="Apartment", tenure="buy"),
+        Listing(id="L002", price=700000, sqft=3000, beds=4, baths=3, city="New York", style="Traditional", listing_type="House", tenure="rent"),
+        Listing(id="L003", price=500000, sqft=1500, beds=3, baths=2, city="Chicago", style="Contemporary", listing_type="Condo", tenure="buy"),
+        Listing(id="L004", price=1600000, sqft=1800, beds=3, baths=2.5, city="San Francisco", style="Spanish", listing_type="Condo", tenure="buy"),
+        Listing(id="L005", price=1000000, sqft=2000, beds=3, baths=1.5, city="Santa Cruz", style="Victorian", listing_type="Suite", tenure="buy"),
+        Listing(id="L006", price=800000, sqft=2200, beds=4, baths=3, city="Los Angeles", style="Modern", listing_type="House", tenure="rent")
     ]
+    
+    user_preferences = UserPreferences()
+    user_preferences.update_constraint_value(Constraint.HOME_TYPE, {"single", "condo", "family"})
+    user_preferences.update_constraint_value(Constraint.STYLE, {"modern", "spanish", "victorian"})
+    user_preferences.update_constraint_value(Constraint.LOCATION, "San Jose")
+    user_preferences.update_constraint_value(Constraint.SQUARE_FEET, 1000)
+    user_preferences.update_constraint_value(Constraint.BUDGET, 1500000)
 
-    constraints = {
-        "city": {"Seattle", "Redmond"},
-        "max_price": 800000,
-        "min_sqft": 900,
-        "listing_type": {"single", "condo", "family"},
-        "tenure": "buy",
-        "include_sold": False
-    }
+    recommended_listing = recommend_listing(user_preferences, listings)
+    print(f"Initial Recommended Listing: {recommended_listing.id}, {recommended_listing.price}, {recommended_listing.city}")
 
-    rec = HousingRecommender(constraints)
-    ranked = rec.recommend(listings)
-    print("Initial ranking:", [h.id for h in ranked])
-
-    # User swipes right on C, left on A; update and re-rank
-    rec.feedback(next(h for h in listings if h.id == "C"), liked=True)
-    rec.feedback(next(h for h in listings if h.id == "A"), liked=False)
-    reranked = rec.recommend(listings)
-    print("After feedback:", [h.id for h in reranked])
+    #user_feedback = get_user_feedback()
+    #update_user_feedback(user_preferences, recommended_listing, user_feedback)
