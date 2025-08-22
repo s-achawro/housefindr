@@ -5,27 +5,6 @@ import math
 import sqlite3
 import random
 
-from geopy.geocoders import Nominatim
-
-def havDist(lat1, lon1, lat2, lon2):
-  """
-  Haversine dist of two lat/long points
-  """
-  R = 3958.8  #radius of Earth in miles
-
-  lat1Rad = math.radians(lat1)
-  lon1Rad = math.radians(lon1)
-  lat2Rad = math.radians(lat2)
-  lon2Rad = math.radians(lon2)
-
-  dlon = lon2Rad - lon1Rad
-  dlat = lat2Rad - lat1Rad
-
-  a = math.sin(dlat / 2)**2 + math.cos(lat1Rad) * math.cos(lat2Rad) * math.sin(dlon / 2)**2
-  c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
-  distance = R * c
-  return distance
 
 
 class UTAlgorithm:
@@ -140,25 +119,4 @@ if __name__ == "__main__":
 
     ut_algorithm.run()
 
-    """
-    geolocator = Nominatim(user_agent="my_geocoder_app")
-    address1 = "Santa Cruz, CA"
-    address2 = "San Jose, CA"
-
-    location1 = geolocator.geocode(address1)
-    location2 = geolocator.geocode(address2)
-
-    print(location1.latitude, location1.longitude)
-    print(location2.latitude, location2.longitude)
-
-    if location1 and location2:
-        l1lat = location1.latitude
-        l1lon = location1.longitude
-        l2lat = location2.latitude
-        l2lon = location2.longitude
-
-        print(havDist(l1lat, l1lon, l2lat, l2lon))
-    else:
-        print("Location not found")
-    """
 

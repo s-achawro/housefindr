@@ -74,8 +74,9 @@ class UserPreferences:
         Update the rigidity of a specific constraint
         Each constraint and rigidity pair must be valid for the specific constraint type in order to update
         In addition, rigidity must be a float between 0 and 1 (inclusive)
+        Excluding 0, rigidity determines which constraint(s) to drop first (higher values drop first)
 
-        CONDITIONS: Cannot update rigidity for 'buy_or_rent' or 'include_not_for_sale'
+        CONDITIONS: Cannot update rigidity for 'buy_or_rent'
         """
         if constraint not in self.constraints:
             raise ValueError(f"Constraint '{constraint.value}' does not exist.")
@@ -132,9 +133,9 @@ class UserPreferences:
         if constraint not in self.constraints:
             raise ValueError(f"Constraint '{constraint.value}' does not exist.")
         
-        if constraint == Constraint.BUY_OR_RENT or constraint == Constraint.INCLUDE_NOT_FOR_SALE:
-            raise ValueError("Cannot remove 'buy_or_rent' or 'include_not_for_sale' constraints.")
-        self.constraints[constraint] = Preference(None, 1) #none object w/ 1 rigidity, it is no longer a constraint 
+        if constraint == Constraint.BUY_OR_RENT:
+            raise ValueError("Cannot remove 'buy_or_rent' constraints.")
+        self.constraints[constraint] = Preference(None, 1) #none object w/ 1 rigidity, it is no longer a constraint
 
 
 
