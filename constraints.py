@@ -27,10 +27,10 @@ class UserPreferences:
     def __init__(self):
         self.constraints = {
             Constraint.LOCATION: Preference("", 0.025), #city name
-            Constraint.HOME_TYPE: Preference("", 0.2), #ex, "apartment", "house", "condo", etc
+            Constraint.HOME_TYPE: Preference(set(), 0.2), #ex, "apartment", "house", "condo", etc
             Constraint.SQUARE_FEET: Preference(0.0, 0.01),
             Constraint.BUDGET: Preference(0, 0),
-            Constraint.STYLE: Preference(False, 0),
+            Constraint.STYLE: Preference(set(), 0), #rigidity always 0
             Constraint.BUY_OR_RENT: Preference(PurchaseType.BUY, 0) #rigidity always 0, cant be removed
         }
 
@@ -50,8 +50,8 @@ class UserPreferences:
                 if not isinstance(value, str):
                     raise ValueError("Location must be a city name (string).")
             case Constraint.HOME_TYPE:
-                if (not isinstance(value, str)) and (not isinstance(value, set)):
-                    raise ValueError("Home type must be a string or a set of strings.")
+                if not isinstance(value, set):
+                    raise ValueError("Home type must be a set of string(s).")
             case Constraint.SQUARE_FEET:
                 if not isinstance(value, (int, float)) or value < 0:
                     raise ValueError("Square feet must be a positive number.")
@@ -59,8 +59,8 @@ class UserPreferences:
                 if not isinstance(value, (int, float)) or value < 0:
                     raise ValueError("Budget must be a positive number.")
             case Constraint.STYLE:
-                if not (not isinstance(value, str)) and (not isinstance(value, set)):
-                    raise ValueError("Style must be a string or set of strings.")
+                if not isinstance(value, set):
+                    raise ValueError("Style must be a set of string(s).")
             case Constraint.BUY_OR_RENT:
                 if not isinstance(value, PurchaseType):
                     raise ValueError("Buy or rent must be a PurchaseType enum.")
@@ -74,7 +74,8 @@ class UserPreferences:
         Update the rigidity of a specific constraint
         Each constraint and rigidity pair must be valid for the specific constraint type in order to update
         In addition, rigidity must be a float between 0 and 1 (inclusive)
-        Excluding 0, rigidity determines which constraint(s) to drop first (higher values drop first)
+        Rigidity -1 means it is not currently being factored as a constraint
+        Excluding 0 & -1, rigidity determines which constraint(s) to drop first (higher values drop first)
 
         CONDITIONS: Cannot update rigidity for 'buy_or_rent'
         """
@@ -122,22 +123,36 @@ class UserPreferences:
 
 
 
-    #===REMOVE A CONSTRAINT===#
+    #===RE-ADD/REMOVE A CONSTRAINT===#
 
 
     def remove_constraint(self, constraint: Constraint):
         """
         Remove a user constraint
-        CONDITIONS: Cannot remove 'buy_or_rent' or 'include_not_for_sale'
+        CONDITIONS: Cannot remove 'buy_or_rent'
         """
+        print(constraint)
         if constraint not in self.constraints:
             raise ValueError(f"Constraint '{constraint.value}' does not exist.")
         
         if constraint == Constraint.BUY_OR_RENT:
             raise ValueError("Cannot remove 'buy_or_rent' constraints.")
-        self.constraints[constraint] = Preference(None, 1) #none object w/ 1 rigidity, it is no longer a constraint
+        self.constraints[constraint] = Preference(None, -1) #none object w/ -1 rigidity, it is no longer a constraint
 
+    def reAdd_constraint(self, constraint: Constraint, value: any, rigidity: float):
+        """
+        Re-add a user constraint
+        CONDITIONS: Rigidity must be -1
+        """
+        print(constraint)
+        if constraint not in self.constraints:
+            raise ValueError(f"Constraint '{constraint.value}' does not exist.")
 
+        if self.constraints[constraint].rigidity != -1:
+            raise ValueError(f"Constraint '{constraint.value}' must have rigidity -1 to be re-added.")
+
+        self.update_constraint_value(constraint, value)
+        self.update_constraint_rigidity(constraint, rigidity)
 
     #===PRINTS===#
 
