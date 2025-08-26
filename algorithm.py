@@ -124,42 +124,42 @@ class HousingRecommender:
         for listing in listings:
 
             #does the city location match?
-            loc_val = user_preferences.constraints[Constraint.LOCATION].get_preference_value()  # <-- changed
-            if isinstance(loc_val, str) and loc_val != "":                                      # <-- changed
-                if listing.city != loc_val:                                                     # <-- changed
-                    continue                                                                    # <-- changed
+            loc_val = user_preferences.constraints[Constraint.LOCATION].get_preference_value() 
+            if isinstance(loc_val, str) and loc_val != "":
+                if listing.city != loc_val:
+                    continue
 
             #is the minimum sqFT met? or is it within reasonable flexibility?
-            sqft_val = user_preferences.constraints[Constraint.SQUARE_FEET].get_preference_value()  # <-- changed
-            if isinstance(sqft_val, (int, float)) and sqft_val > 0:                                  # <-- changed
-                differenceInFeet = abs(listing.sqft - sqft_val)                                     # (kept purpose)
+            sqft_val = user_preferences.constraints[Constraint.SQUARE_FEET].get_preference_value()
+            if isinstance(sqft_val, (int, float)) and sqft_val > 0:
+                differenceInFeet = abs(listing.sqft - sqft_val)
                 roomForError = 0
                 if user_preferences.is_flexible(Constraint.SQUARE_FEET):
-                    r = user_preferences.constraints[Constraint.SQUARE_FEET].rigidity              # <-- changed
-                    roomForError = sqft_val - (sqft_val * r)                                       # <-- changed
+                    r = user_preferences.constraints[Constraint.SQUARE_FEET].rigidity
+                    roomForError = sqft_val - (sqft_val * r)
                 if not (listing.sqft >= sqft_val or
                         (user_preferences.is_flexible(Constraint.SQUARE_FEET) and differenceInFeet <= roomForError)):
                     #print("Listing failed square feet constraint")
                     continue
 
             #is the price within budget? or, is it within reasonable flexibility?
-            bud_val = user_preferences.constraints[Constraint.BUDGET].get_preference_value()        # <-- changed
-            if isinstance(bud_val, (int, float)) and bud_val > 0:                                   # <-- changed
+            bud_val = user_preferences.constraints[Constraint.BUDGET].get_preference_value()
+            if isinstance(bud_val, (int, float)) and bud_val > 0:
                 differenceInPrice = abs(listing.price - bud_val)
                 roomForError = 0
                 if user_preferences.is_flexible(Constraint.BUDGET):
-                    r = user_preferences.constraints[Constraint.BUDGET].rigidity                   # <-- changed
-                    roomForError = bud_val - (bud_val * r)                                         # <-- changed
+                    r = user_preferences.constraints[Constraint.BUDGET].rigidity
+                    roomForError = bud_val - (bud_val * r)
                 if not (listing.price <= bud_val or
                         (user_preferences.is_flexible(Constraint.BUDGET) and differenceInPrice <= roomForError)):
                     #print("Listing failed budget constraint")
                     continue
 
             #go through all the styles we like. if none matches the constraints, dont add this property
-            pref_styles = user_preferences.constraints[Constraint.STYLE].get_preference_value()      # <-- changed
-            if isinstance(pref_styles, set) and len(pref_styles) > 0:                                 # <-- changed
-                listing_styles = listing.style if isinstance(listing.style, set) else {listing.style} # <-- changed
-                if listing_styles.isdisjoint(pref_styles):                                            # <-- changed
+            pref_styles = user_preferences.constraints[Constraint.STYLE].get_preference_value()
+            if isinstance(pref_styles, set) and len(pref_styles) > 0:
+                listing_styles = listing.style if isinstance(listing.style, set) else {listing.style}
+                if listing_styles.isdisjoint(pref_styles):
                     #print("Listing failed style constraint")
                     continue
 
@@ -169,7 +169,7 @@ class HousingRecommender:
             filtered_listings.append(listing)
         return filtered_listings
 
-    #Returns the 1st matching suitable listing for the user <- MAYBE CHANGE?
+    #Returns the 1st matching suitable listing for the user
     def recommend_listing(self, user_preferences, listings):
         # --- replaced with scoring + exploration like recommender.py ---
         candidates = [l for l in listings if l.id not in self.exclude_ids]
