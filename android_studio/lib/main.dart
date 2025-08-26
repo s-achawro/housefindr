@@ -28,7 +28,7 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('HouseFinder')),
+    appBar: AppBar(title: Text('HouseFindr'), backgroundColor: Color(0xFFE4D7C4),),
     body: SafeArea(
       child: Container(
         alignment: Alignment.center,
@@ -40,16 +40,24 @@ class HomePage extends StatelessWidget {
 
   Widget buildCards(BuildContext context) {
       final provider = Provider.of<CardProvider>(context);
-      final urlImages = provider.urlImages;
-
-      return Stack(
-        children: urlImages
-            .map((urlImage) => HouseCard(
-                urlImage: urlImage,
-                isFront: urlImages.last == urlImage,
-              ))
-            .toList(),
-      );
+      // final urlImages = provider.urlImages;
+      final houses = provider.houses;
+      // return Stack(
+      //   children: urlImages
+      //       .map((urlImage) => HouseCard(
+      //           urlImage: urlImage,
+      //           isFront: urlImages.last == urlImage,
+      //         ))
+      //       .toList(),
+      // );
+    return Stack(
+      children: houses
+          .map((house) => HouseCard(
+        house: house,
+        isFront: house == houses.last,
+      ))
+          .toList(),
+    );
   }
 }
 
