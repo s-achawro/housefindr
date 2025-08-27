@@ -1,6 +1,6 @@
 # android_studio
 
-HouseFinder App
+HouseFindr App
 
 ## Getting Started
 

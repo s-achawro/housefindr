@@ -3,15 +3,17 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'card_provider.dart';
-
+import 'house_user.dart';
 
 class HouseCard extends StatefulWidget {
-  final String urlImage;
+  // final String urlImage;
+  final HouseUser house;
   final bool isFront;
 
   const HouseCard({
     super.key,
-    required this.urlImage,
+    // required this.urlImage,
+    required this.house,
     required this.isFront,
   });
 
@@ -59,7 +61,12 @@ class _HouseCardState extends State<HouseCard> {
             duration: Duration(milliseconds: milliseconds),
             transform: rotateMatrix
               ..translate(position.dx, position.dy),
-            child: buildCard(),
+            child: Stack(
+              children:[
+                buildCard(),
+                buildStamps(),
+          ],
+            ),
         );
       },
     ),
@@ -84,13 +91,120 @@ class _HouseCardState extends State<HouseCard> {
       borderRadius: BorderRadius.circular(20),
       child: Container(
         decoration: BoxDecoration(
+          // color: Colors.grey.shade200,
+          color: Color(0xFFE7E0D4),
           image: DecorationImage(
-            image: NetworkImage(widget.urlImage),
-            fit: BoxFit.cover,
-            //   fit: BoxFit.contain,
+            image: NetworkImage(widget.house.imageUrl),
+            // fit: BoxFit.cover,
+              fit: BoxFit.contain,
             alignment: Alignment(-0.3, 0),
           ),
         ),
+        child: Container(
+          padding: EdgeInsets.all(20),
+          child: Column(
+            children: [
+              buildName(),
+          ],
+          ),
+        ),
+        )
+      );
+
+  Widget buildName() => Row(
+    children: [
+      Text(
+      widget.house.number,
+      style: TextStyle(
+        fontSize: 15,
+        color: Colors.black,
+        fontWeight: FontWeight.bold,
       ),
+      ),
+    const SizedBox(width: 16),
+    Text(
+      '${widget.house.address}',
+      style: TextStyle(
+        fontSize: 15,
+        color: Colors.black,
+      ),
+    ),
+    ],
+  );
+
+
+  Widget buildStamps(){
+    final provider = Provider.of<CardProvider>(context);
+    final status = provider.getStatus();
+    final opacity = provider.getStatusOpacity();
+
+    switch (status) {
+      case CardStatus.like:
+        final child = buildStamp(
+            angle: -0.5,
+            color: Colors.green,
+            text: 'LIKE',
+            opacity: opacity,
+          );
+        return Positioned(top: 64, left: 50, child: child);
+
+      case CardStatus.dislike:
+        final child = buildStamp(
+            angle:0.5,
+            color: Colors.red,
+            text: 'NOPE',
+            opacity: opacity,
+          );
+        return Positioned(top:64, left:180, child: child);
+
+      case CardStatus.superLike:
+        final child = Center(
+          child: buildStamp(
+              color: Colors.blue,
+              text: 'SUPER\nLIKE',
+              opacity: opacity,
+          ),
+        );
+          return Positioned(
+              bottom: 128,
+              right:0,
+              left: 0,
+              child: child
+          );
+
+        default:
+          return Container();
+    }
+  }
+
+  Widget buildStamp({
+    double angle = 0,
+    required Color color,
+    required String text,
+    required double opacity,
+  })  {
+    return Opacity(
+      opacity: opacity,
+      child: Transform.rotate(
+        angle: angle,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color, width:4),
+        ),
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: color,
+            fontSize: 48,
+            fontWeight: FontWeight.bold,
+          ),
+        )
+        ),
+    ),
     );
   }
+  }
+
