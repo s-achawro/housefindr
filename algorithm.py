@@ -248,6 +248,7 @@ class HousingRecommender:
 
 
 def interactive_loop(system, prefs, listings):
+    print(prefs)
     while True:
         rec = system.recommend_listing(prefs, listings)
         if not rec:

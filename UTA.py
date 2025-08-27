@@ -64,6 +64,18 @@ class UTAlgorithm:
     def return_database(self):
         return self.database
     
+    def get_current_home(self):
+        if self.feed:
+            return self.feed[0]
+        else:
+            return None
+        
+    def get_home(self, ID):
+        for home in self.database:
+            if home.id == ID:
+                return home
+        return None
+    
     #===SETTERS===#
     def update_rigidity(self, constraint, value):
         self.constraints.update_constraint_rigidity(constraint, value)
@@ -81,50 +93,54 @@ class UTAlgorithm:
         for row in self.database:
             print(row)
 
+    def print_home(self, ID):
+        home = self.get_home(ID)
+        if home:
+            print(home)
+        else:
+            print("Home not found.")
+
+    def print_current_home(self):
+        home = self.get_current_home()
+        if home:
+            print(home)
+        else:
+            print("No current home.")
+
     #===ALGORITHM STUFF===#
-    def recommend_homes(self):
-        #adds 2 recommended homes to the feed at a time based on previous user feedback
-        for i in range(2):
-            sorting = self.algorithm.recommend(self.return_database())
-            
-            try:
-                self.feed.append(sorting[i])
-            except IndexError:
-                continue
-    
-    def receive_user_feedback(self, home, feedback):
-        #process feedback for the current home, and removes it from feed
-        self.algorithm.feedback(home, feedback)
-        self.feed.remove(home)
 
+    def reccomend_2_homes(self):
+        recs = []
+        for _ in range(2):
+            rec = self.algorithm.recommend_listing(self.constraints, self.database)
+            if rec:
+                recs.append(rec)
+                self.database.remove(rec) #remove from pool to avoid duplicates
+                print(self.get_home(rec.id))
+        if len(self.feed) <= 5: #max size of 7
+            self.feed += recs
 
-    def process_input(self, home, user_input):
-        #processes user input
-        if user_input.lower() == "like":
-            self.receive_user_feedback(home, True)
-        elif user_input.lower() == "dislike":
-            self.receive_user_feedback(home, False)
-
-        self.recommend_homes()
 
     #main loop, use to run system
+    #taken from algorithm.py interactive_loop, modified to for simplicity to interact with frontend
     def run(self):
-        self.recommend_homes()
-        home = random.choice(self.database)
-        if len(self.feed) != 0:
-            home = self.feed[0]
-
         while True:
-            print("Current home:", home)
-
-            user_input = input("Type 'Like' or 'Dislike' on this house. Or, type 'EXIT' if you are done: ")
-            if user_input.lower() == "exit":
+            self.reccomend_2_homes()
+            rec = self.get_current_home()
+            if not rec:
+                print("No recommendation found. Try loosening constraints.")
                 break
-            elif user_input.lower() not in ["like", "dislike"]:
-                print("Invalid input. Please type 'Like', 'Dislike', or 'EXIT'.")
-                continue
-            else:
-                self.process_input(home, user_input)
+            #print("Current feed:", self.feed)
+            #print("CURRENT = ", rec)
+            print(f"\nRecommended: {rec.id} | ${rec.price} | {rec.city} | {rec.listing_type} | styles={rec.style}")
+            ans = input("Do you like this listing? [y/n/q]: ").strip().lower()
+            if ans == "q":
+                break
+
+            liked = (ans == "y")
+            self.algorithm.update_user_feedback(self.constraints, rec, liked)
+            print("Updated weights:", {k: round(v, 3) for k, v in self.algorithm.weights.items()})
+            self.feed.pop(0)
 
 if __name__ == "__main__":
     
