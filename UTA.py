@@ -4,29 +4,40 @@ from constraints import Constraint, PurchaseType
 import math
 import sqlite3
 import random
+from PIL import Image
+import requests
+from io import BytesIO
 
-"""
-INITIAL PLAN/CONCEPT:
-push 2 recommended homes to the feed at a time
-every time the user provides feedback, the scoring updates, and pushes 2 new homes into the feed
-front of feed = current item user is looking at/currently being recommended, back of feed = upcoming homes to recommend based on feedback
-    
-IMPORTANT-Q: how to deal with making sure we dont get duplicates/recommend the same home multiple times?
 
-note: have not tested/touched since working on algorithm.py
-"""
+def display_image_from_url(url):
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        image = Image.open(BytesIO(response.content))
+        
+        image.show()
+    else:
+        print(f"Failed to retrieve the image. Status code: {response.status_code}")
 
 class UTAlgorithm:
     def __init__(self):
-
+        
 
         ###DO NOT TOUCH, FOR DB PROPAGATION###
+
+        self.idToImg = {}
+
+
         connection = sqlite3.connect("houselisting.db")
         cursor = connection.cursor()
-
+        
         cursor.execute("SELECT * FROM listings")  
         self.database = cursor.fetchall()
         self.build_listings_from_db()
+
+        cursor.execute("SELECT * FROM images")
+        self.idToImg = cursor.fetchall()
+        self.grab_images_from_db()
         connection.close()
         ###DO NOT TOUCH, FOR DB PROPAGATION###
 
@@ -53,7 +64,14 @@ class UTAlgorithm:
                 tenure=row[3],
             )
             self.listings.append(house)
+
         self.database = self.listings
+
+    def grab_images_from_db(self):
+        images = {}
+        for row in self.idToImg:
+            images[str(row[0])] = row[2]  #map id to image url
+        self.idToImg = images
     ###DO NOT TOUCH, FOR DB PROPAGATION###
 
 
@@ -76,6 +94,16 @@ class UTAlgorithm:
                 return home
         return None
     
+
+    def get_current_url(self):
+        home = self.get_current_home()
+        if home:
+            return self.idToImg[home.id]
+        return None
+
+    def get_home_url(self, ID):
+        return self.idToImg[ID]
+
     #===SETTERS===#
     def update_rigidity(self, constraint, value):
         self.constraints.update_constraint_rigidity(constraint, value)
@@ -107,6 +135,21 @@ class UTAlgorithm:
         else:
             print("No current home.")
 
+    #img display
+    def show_current_home(self):
+        home = self.get_current_home()
+        if home:
+            display_image_from_url(self.idToImg[home.id])
+        else:
+            print("No current home.")
+    #img display
+    def show_home(self, ID):
+        home = self.get_home(ID)
+        if home:
+            display_image_from_url(self.idToImg[home.id])
+        else:
+            print("Home not found.")
+
     #===ALGORITHM STUFF===#
 
     def reccomend_2_homes(self):
@@ -130,9 +173,8 @@ class UTAlgorithm:
             if not rec:
                 print("No recommendation found. Try loosening constraints.")
                 break
-            #print("Current feed:", self.feed)
-            #print("CURRENT = ", rec)
             print(f"\nRecommended: {rec.id} | ${rec.price} | {rec.city} | {rec.listing_type} | styles={rec.style}")
+            #self.show_current_home() #<- IMG DISPLAY FOR RUNNING IN CONSOLE
             ans = input("Do you like this listing? [y/n/q]: ").strip().lower()
             if ans == "q":
                 break
@@ -142,13 +184,14 @@ class UTAlgorithm:
             print("Updated weights:", {k: round(v, 3) for k, v in self.algorithm.weights.items()})
             self.feed.pop(0)
 
+
 if __name__ == "__main__":
     
 
     ut_algorithm = UTAlgorithm()
     ut_algorithm.update_constraint(Constraint.HOME_TYPE, {"single", "condo", "family"})
     ut_algorithm.update_constraint(Constraint.STYLE, {"modern", "spanish", "victorian"})
-    ut_algorithm.update_constraint(Constraint.LOCATION, "Santa Cruz")
+    ut_algorithm.update_constraint(Constraint.LOCATION, "San Jose")
     ut_algorithm.update_constraint(Constraint.SQUARE_FEET, 1000)
     ut_algorithm.update_constraint(Constraint.BUDGET, 2000000)
 
