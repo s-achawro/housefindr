@@ -42,8 +42,11 @@ dependencies:
   path: ^1.9.0
   fluttertoast: ^8.2.12
 
-  chaquopy: ^0.0.20
+#  chaquopy: ^0.0.20
+  http: ^1.2.2
   #for python use
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.5
 
 #  isar: ^3.1.0+1
 #  isar_flutter_libs: ^3.1.0+1
